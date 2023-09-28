@@ -23,17 +23,13 @@ main_url="https://htbmachines.github.io/bundle.js"
 
 function helpPanel(){
 	echo -e "\n${yellowColour}[+]${endColour}${grayColour} Uso:${endColour}"
-	echo -e "\t${purpleColour}u)${endColour}${grayColour} Descragar o actualizar archivos necesarios${endColour}"
+	echo -e "\t${purpleColour}u)${endColour}${grayColour} Descargar o actualizar archivos necesarios${endColour}"
 	echo -e "\t${purpleColour}m)${endColour}${grayColour} Buscar por un nombre de máquina${endColour}"
-	echo -e "\t${purpleColour}h)${endColour}${grayColour} Mostrar panel de ayuda${endColour}"
+	echo -e "\t${purpleColour}i)${endColour}${grayColour} Buscar por dirección IP${endColour}"
+	echo -e "\t${purpleColour}h)${endColour}${grayColour} Mostrar panel de ayuda${endColour}"	
 }
 
-function searchMachine(){
-	machineName="$1"
 	
-	echo $machineName
-}
-
 
 function updateFiles(){
 
@@ -70,15 +66,46 @@ function updateFiles(){
 	fi
 }
 
+
+
+function searchMachine(){
+	machineName="$1"
+	
+	echo -e "\n${yellowColour}[+]${endColour}${grayColour} Listando las propiedades de la máquina${endColour}${blueColour} $machineName${endColour}${grayColour}:${endColour}\n"
+
+	output="$(cat bundle.js | awk "/name: \"$machineName\"/,/resuelta:/" | grep -vE "id:|sku:|resuelta:" | tr -d '"' | tr -d ',' | sed 's/^ *//')"
+	
+	while read -r line;
+	do
+		o1=$(echo $line | awk '{print $1}')
+		o2=$(echo $line | awk -F ":" '{print $NF}')
+
+		 echo -e "${purpleColour}$o1 ${endColour}${grayColour}$o2${endColour}" 
+	done <<< "$output" 
+}
+
+
+
+function searchIP(){
+	ipAddress="$1"
+
+	machineName="$(cat bundle.js | grep "ip: \"$ipAddress\"" -B 3 | grep "name: " | awk 'NF{print $NF}' | tr -d '"' | tr -d ',')"
+
+	echo -e "\n${yellowColour}[+]${endColour}${grayColour} La máquina correspondiente para la IP${endColour}${purpleColour} $ipAddress${endColour}${grayColour} es${endColour}${blueColour} $machineName${endColour}\n"
+
+}
+
+
 # Indicadores
 declare -i parameter_counter=0 # Creamos una variable de tipo entero con -i
 
 # Creamos dos parametros para cuando lancemos el script, si queremos que el parametro tenga un argumento deberemos de ponerle : seguidos, es decir, si queremos que sea
 # así ./htbmachine.sh -m "Nombre_maquina", deberemos indicarle "m:"
-while getopts "m:uh" arg; do # Primero se pone los paremtros que necesitan argumentos, y seguido de los : los que no lo necesitan, en este caso u y h no lo necesitan
+while getopts "m:ui:h" arg; do # Primero se pone los paremtros que necesitan argumentos, y seguido de los : los que no lo necesitan, en este caso u y h no lo necesitan
 	case $arg in
 	 m) machineName=$OPTARG;  let parameter_counter+=1;;
 	 u) let parameter_counter+=2;;
+	 i) ipAddress=$OPTARG; let parameter_counter+=3;;
 	 h) ;; # Cuando hagamos -h, llamaremos a la función helpPanel
 	esac
 done
@@ -87,6 +114,8 @@ if [ $parameter_counter -eq 1 ]; then
 	searchMachine $machineName
 elif [ $parameter_counter -eq 2 ]; then
 	updateFiles
+elif [ $parameter_counter -eq 3 ]; then
+	searchIP $ipAddress
 else
 	helpPanel
 fi
