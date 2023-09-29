@@ -26,6 +26,8 @@ function helpPanel(){
 	echo -e "\t${purpleColour}u)${endColour}${grayColour} Descargar o actualizar archivos necesarios${endColour}"
 	echo -e "\t${purpleColour}m)${endColour}${grayColour} Buscar por un nombre de máquina${endColour}"
 	echo -e "\t${purpleColour}i)${endColour}${grayColour} Buscar por dirección IP${endColour}"
+	echo -e "\t${purpleColour}d)${endColour}${grayColour} Buscar según la dificultad de la máquina${endColour}"
+	echo -e "\t${purpleColour}y)${endColour}${grayColour} Obtener link de la resolución de la máquina${endColour}"
 	echo -e "\t${purpleColour}h)${endColour}${grayColour} Mostrar panel de ayuda${endColour}"	
 }
 
@@ -71,9 +73,12 @@ function updateFiles(){
 function searchMachine(){
 	machineName="$1"
 	
-	echo -e "\n${yellowColour}[+]${endColour}${grayColour} Listando las propiedades de la máquina${endColour}${blueColour} $machineName${endColour}${grayColour}:${endColour}\n"
 
 	output="$(cat bundle.js | awk "/name: \"$machineName\"/,/resuelta:/" | grep -vE "id:|sku:|resuelta:" | tr -d '"' | tr -d ',' | sed 's/^ *//')"
+	
+	if [ "$output" ]; then
+
+	echo -e "\n${yellowColour}[+]${endColour}${grayColour} Listando las propiedades de la máquina${endColour}${blueColour} $machineName${endColour}${grayColour}:${endColour}\n"
 	
 	while read -r line;
 	do
@@ -81,7 +86,11 @@ function searchMachine(){
 		o2=$(echo $line | awk -F ":" '{print $NF}')
 
 		 echo -e "${purpleColour}$o1 ${endColour}${grayColour}$o2${endColour}" 
-	done <<< "$output" 
+	done <<< "$output"
+	else
+		echo -e "\n${redColour}[!] La máquina proporcionada no existe${endColour}\n"
+	fi
+
 }
 
 
@@ -91,21 +100,54 @@ function searchIP(){
 
 	machineName="$(cat bundle.js | grep "ip: \"$ipAddress\"" -B 3 | grep "name: " | awk 'NF{print $NF}' | tr -d '"' | tr -d ',')"
 
+	if [ "$machineName" ]; then
+
 	echo -e "\n${yellowColour}[+]${endColour}${grayColour} La máquina correspondiente para la IP${endColour}${purpleColour} $ipAddress${endColour}${grayColour} es${endColour}${blueColour} $machineName${endColour}\n"
+	else
+		echo -e "\n${redColour}[!] La dirección IP no existe${endColour}\n"
+	fi
 
 }
 
+
+function getYoutubeLink(){
+
+	machineName="$1"
+
+	youtubeLink="$(cat bundle.js | awk "/name: \"$machineName\"/,/resuelta:/" | grep -vE "id:|sku:|resuelta:" | tr -d '"' | tr -d ',' | sed 's/^ *//' | grep youtube | awk '{print $NF}')"
+	
+	if [ "$youtubeLink" ]; then
+		echo -e "\n ${yellowColour}[+]${endColour} ${grayColour}Para ver la resolucón de la máquina${endColour}${purpleColour} $machineName${endColour}${grayColour}, puedes utilizar el siguiente enlace:${endColour}${purpleColour} $youtubeLink${endColour}\n"
+	else
+		echo -e "\n${redColour}[!] La máquina proporcionada no existe${endColour}\n"
+	fi
+	
+}
+
+function searchDificulty() {
+	dificulty="$1"
+	
+	results_check="$(cat bundle.js | grep "dificultad: \"$dificulty\"" -B 5 | grep name | awk 'NF{print $NF}' | tr -d '",' | column)"
+
+	if [ "$results_check" ]; then
+		echo -e "\n ${yellowColour}[+]${endColour}${grayColour} Estas son las máquinas con la dificultad:${endColour}${purpleColour} $dificulty${endColour}\n\n$results_check"
+	else
+		echo -e "\n${redColour}[!] La dificultad proporcionada no existe${endColour}\n"
+	fi
+}
 
 # Indicadores
 declare -i parameter_counter=0 # Creamos una variable de tipo entero con -i
 
 # Creamos dos parametros para cuando lancemos el script, si queremos que el parametro tenga un argumento deberemos de ponerle : seguidos, es decir, si queremos que sea
 # así ./htbmachine.sh -m "Nombre_maquina", deberemos indicarle "m:"
-while getopts "m:ui:h" arg; do # Primero se pone los paremtros que necesitan argumentos, y seguido de los : los que no lo necesitan, en este caso u y h no lo necesitan
+while getopts "m:ui:y:d:h" arg; do # Primero se pone los paremtros que necesitan argumentos, y seguido de los : los que no lo necesitan, en este caso u y h no lo necesitan
 	case $arg in
-	 m) machineName=$OPTARG;  let parameter_counter+=1;;
+	 m) machineName="$OPTARG";  let parameter_counter+=1;;
 	 u) let parameter_counter+=2;;
-	 i) ipAddress=$OPTARG; let parameter_counter+=3;;
+	 i) ipAddress="$OPTARG"; let parameter_counter+=3;;
+	 y) machineName="$OPTARG"; let parameter_counter+=4;;
+	 d) dificulty="$OPTARG"; let parameter_counter+=5;;
 	 h) ;; # Cuando hagamos -h, llamaremos a la función helpPanel
 	esac
 done
@@ -116,6 +158,10 @@ elif [ $parameter_counter -eq 2 ]; then
 	updateFiles
 elif [ $parameter_counter -eq 3 ]; then
 	searchIP $ipAddress
+elif [ $parameter_counter -eq 4 ]; then
+	getYoutubeLink $machineName
+elif [ $parameter_counter -eq 5 ]; then
+	searchDificulty $dificulty
 else
 	helpPanel
 fi
